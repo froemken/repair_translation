@@ -25,7 +25,12 @@ namespace StefanFroemken\RepairTranslation\SignalSlot;
  *  This copyright notice MUST APPEAR in all copies of the script!
  ***************************************************************/
 use TYPO3\CMS\Backend\Utility\BackendUtility;
+use TYPO3\CMS\Extbase\DomainObject\DomainObjectInterface;
+use TYPO3\CMS\Extbase\Persistence\Generic\Qom\Comparison;
+use TYPO3\CMS\Extbase\Persistence\Generic\Qom\ConstraintInterface;
 use TYPO3\CMS\Extbase\Persistence\Generic\Qom\JoinInterface;
+use TYPO3\CMS\Extbase\Persistence\Generic\Qom\LogicalAnd;
+use TYPO3\CMS\Extbase\Persistence\Generic\Qom\LogicalOr;
 use TYPO3\CMS\Extbase\Persistence\Generic\Qom\SelectorInterface;
 use TYPO3\CMS\Extbase\Persistence\QueryInterface;
 
@@ -46,6 +51,18 @@ class Repair
     protected $environmentService;
     
     /**
+     * @var \TYPO3\CMS\Extbase\Persistence\Generic\Mapper\DataMapper
+     * @inject
+     */
+    protected $dataMapper;
+    
+    /**
+     * @var \StefanFroemken\RepairTranslation\Parser\QueryParser
+     * @inject
+     */
+    protected $queryParser;
+    
+    /**
      * Modify sys_file_reference language
      *
      * @param \TYPO3\CMS\Extbase\Persistence\QueryInterface $query
@@ -55,16 +72,9 @@ class Repair
      */
     public function modifySysFileReferenceLanguage(QueryInterface $query, array $result)
     {
-        if (
-            $this->getTableName($query) === 'sys_file_reference' &&
-            ($expectedLanguageUid = (int)$query->getQuerySettings()->getLanguageUid()) &&
-            $firstSysFileReferenceRow = current($result)
-        ) {
+        if ($this->isSysFileReferenceTable($query)) {
             $origTranslatedReferences = $this->reduceResultToTranslatedRecords($result);
-            $newTranslatedReferences = $this->getNewlyCreatedTranslatedSysFileReferences(
-                $firstSysFileReferenceRow,
-                $expectedLanguageUid
-            );
+            $newTranslatedReferences = $this->getNewlyCreatedTranslatedSysFileReferences($query);
             $result = array_merge($origTranslatedReferences, $newTranslatedReferences);
         }
         
@@ -87,7 +97,7 @@ class Repair
         foreach ($sysFileReferenceRecords as $key => $record) {
             if (isset($record['_LOCALIZED_UID'])) {
                 // The image reference in translated parent record was not manually deleted.
-                // So l10n_parent is filled and we have a valid translated sys_file_reference record here
+                // So, l10n_parent is filled and we have a valid translated sys_file_reference record here
                 $translatedRecords[] = $record;
             }
         }
@@ -96,13 +106,13 @@ class Repair
     }
     
     /**
-     * Get table name
+     * Check for sys_file_reference table
      *
      * @param QueryInterface $query
      *
-     * @return string
+     * @return bool
      */
-    protected function getTableName(QueryInterface $query)
+    protected function isSysFileReferenceTable(QueryInterface $query)
     {
         $source = $query->getSource();
         if ($source instanceof SelectorInterface) {
@@ -113,7 +123,7 @@ class Repair
             $tableName = '';
         }
         
-        return $tableName;
+        return $tableName === 'sys_file_reference';
     }
     
     /**
@@ -121,24 +131,19 @@ class Repair
      * which do not have a relation to the default language
      * This will happen, if you translate a record, delete the sys_file_record and create a new one
      *
-     * @param array $sysFileReferenceRow
-     * @param int $expectedLanguageUid
+     * @param QueryInterface $query
      *
      * @return array
      */
-    protected function getNewlyCreatedTranslatedSysFileReferences($sysFileReferenceRow, $expectedLanguageUid)
+    protected function getNewlyCreatedTranslatedSysFileReferences(QueryInterface $query)
     {
-        $constraints = array();
-        
-        // $constraints[] = 'sys_language_uid=' . (int)$expectedLanguageUid;
-        $constraints[] = 'tablenames=' . $this->getDatabaseConnection()->fullQuoteStr($sysFileReferenceRow['tablenames'], 'sys_file_reference');
-        $constraints[] = 'fieldname=' . $this->getDatabaseConnection()->fullQuoteStr($sysFileReferenceRow['fieldname'], 'sys_file_reference');
-        $constraints[] = 'uid_foreign=' . (int)$this->getUidOfTranslatedParentRecord($sysFileReferenceRow, $expectedLanguageUid);
+        $where = array();
+        $this->queryParser->parseConstraint($query->getConstraint(), $where);
     
         if ($this->environmentService->isEnvironmentInFrontendMode()) {
-            $constraints[] = ' 1=1 ' . $this->getPageRepository()->enableFields('sys_file_reference');
+            $where[] = ' 1=1 ' . $this->getPageRepository()->enableFields('sys_file_reference');
         } else {
-            $constraints[] = sprintf(
+            $where[] = sprintf(
                 ' 1=1 %s %s',
                 BackendUtility::BEenableFields('sys_file_reference'),
                 BackendUtility::deleteClause('sys_file_reference')
@@ -147,53 +152,13 @@ class Repair
         $rows = $this->getDatabaseConnection()->exec_SELECTgetRows(
             '*',
             'sys_file_reference',
-            implode(' AND ', $constraints)
+            implode(' AND ', $where)
         );
         if (empty($rows)) {
             $rows = array();
         }
         
         return $rows;
-    }
-    
-    /**
-     * Get UID of parent translated record
-     * We need this UID to get the images of the translated record
-     *
-     * @param $sysFileReferenceRow
-     * @param $expectedLanguageUid
-     *
-     * @return int
-     */
-    protected function getUidOfTranslatedParentRecord($sysFileReferenceRow, $expectedLanguageUid)
-    {
-        $parentTableName = $sysFileReferenceRow['tablenames'];
-        $languageField = $GLOBALS['TCA'][$parentTableName]['ctrl']['languageField'];
-        $transPointerField = $GLOBALS['TCA'][$parentTableName]['ctrl']['transOrigPointerField'];
-        
-        $constraints = array();
-        $constraints[] = $languageField . '=' . (int)$expectedLanguageUid;
-        $constraints[] = $transPointerField . '=' . $sysFileReferenceRow['uid_foreign'];
-    
-        if ($this->environmentService->isEnvironmentInFrontendMode()) {
-            $constraints[] = ' 1=1 ' . $this->getPageRepository()->enableFields($parentTableName);
-        } else {
-            $constraints[] = sprintf(
-                ' 1=1 %s %s',
-                BackendUtility::BEenableFields($parentTableName),
-                BackendUtility::deleteClause($parentTableName)
-            );
-        }
-        $row = $this->getDatabaseConnection()->exec_SELECTgetSingleRow(
-            'uid',
-            $parentTableName,
-            implode(' AND ', $constraints)
-        );
-        if (empty($row)) {
-            return 0;
-        } else {
-            return $row['uid'];
-        }
     }
     
     /**
