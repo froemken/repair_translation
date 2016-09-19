@@ -2,7 +2,7 @@
     "name": "stefanfroemken/repair_translation",
     "type": "typo3-cms-extension",
     "description": "Get rid of displaying the default file in translated records",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "license": "GPL-2.0+",
     "keywords": ["typo3", "extbase", "translation", "localization", "repair"],
     "homepage": "http://www.typo3lexikon.de",
