@@ -137,7 +137,11 @@ class Repair
      */
     protected function getNewlyCreatedTranslatedSysFileReferences(QueryInterface $query)
     {
-        $where = array();
+        // Find references which do not have a relation to default language
+        $where = array(
+            0 => 'sys_file_reference.l10n_parent = 0'
+        );
+        // add where statements. uid_foreign=UID of translated parent record
         $this->queryParser->parseConstraint($query->getConstraint(), $where);
     
         if ($this->environmentService->isEnvironmentInFrontendMode()) {
