@@ -75,7 +75,19 @@ class Repair
         if ($this->isSysFileReferenceTable($query)) {
             $origTranslatedReferences = $this->reduceResultToTranslatedRecords($result);
             $newTranslatedReferences = $this->getNewlyCreatedTranslatedSysFileReferences($query);
-            $result = array_merge($origTranslatedReferences, $newTranslatedReferences);
+    
+            $record = current($result);
+            if (
+                is_array($record) &&
+                isset($GLOBALS['TCA'][$record['tablenames']]['columns'][$record['fieldname']]['l10n_mode']) &&
+                $GLOBALS['TCA'][$record['tablenames']]['columns'][$record['fieldname']]['l10n_mode'] === 'mergeIfNotBlank'
+            ) {
+                // if translation is empty, but mergeIfNotBlank is set, than use the image from default language
+                // keep $result as it is
+            } else {
+                // merge with the translated image. If translation is empty $result will be empty, too
+                $result = array_merge($origTranslatedReferences, $newTranslatedReferences);
+            }
         }
         
         return array(
