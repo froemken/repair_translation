@@ -168,7 +168,9 @@ class Repair
         $rows = $this->getDatabaseConnection()->exec_SELECTgetRows(
             '*',
             'sys_file_reference',
-            implode(' AND ', $where)
+            implode(' AND ', $where),
+            '',
+            'sorting_foreign ASC'
         );
         if (empty($rows)) {
             $rows = array();
