@@ -43,25 +43,25 @@ class Repair
      * @var \TYPO3\CMS\Frontend\Page\PageRepository
      */
     protected $pageRepository;
-    
+
     /**
      * @var \TYPO3\CMS\Extbase\Service\EnvironmentService
      * @inject
      */
     protected $environmentService;
-    
+
     /**
      * @var \TYPO3\CMS\Extbase\Persistence\Generic\Mapper\DataMapper
      * @inject
      */
     protected $dataMapper;
-    
+
     /**
      * @var \StefanFroemken\RepairTranslation\Parser\QueryParser
      * @inject
      */
     protected $queryParser;
-    
+
     /**
      * Modify sys_file_reference language
      *
@@ -75,7 +75,7 @@ class Repair
         if ($this->isSysFileReferenceTable($query)) {
             $origTranslatedReferences = $this->reduceResultToTranslatedRecords($result);
             $newTranslatedReferences = $this->getNewlyCreatedTranslatedSysFileReferences($query);
-    
+
             $record = current($result);
             if (
                 is_array($record) &&
@@ -89,13 +89,13 @@ class Repair
                 $result = array_merge($origTranslatedReferences, $newTranslatedReferences);
             }
         }
-        
+
         return array(
             0 => $query,
             1 => $result
         );
     }
-    
+
     /**
      * Reduce sysFileReference array to translated records
      *
@@ -113,10 +113,10 @@ class Repair
                 $translatedRecords[] = $record;
             }
         }
-        
+
         return $translatedRecords;
     }
-    
+
     /**
      * Check for sys_file_reference table
      *
@@ -134,10 +134,10 @@ class Repair
         } else {
             $tableName = '';
         }
-        
+
         return $tableName === 'sys_file_reference';
     }
-    
+
     /**
      * Get newly created translated sys_file_references,
      * which do not have a relation to the default language
@@ -155,7 +155,7 @@ class Repair
         );
         // add where statements. uid_foreign=UID of translated parent record
         $this->queryParser->parseConstraint($query->getConstraint(), $where);
-    
+
         if ($this->environmentService->isEnvironmentInFrontendMode()) {
             $where[] = ' 1=1 ' . $this->getPageRepository()->enableFields('sys_file_reference');
         } else {
@@ -175,10 +175,18 @@ class Repair
         if (empty($rows)) {
             $rows = array();
         }
-        
+
+        foreach ($rows as $key => &$row) {
+            BackendUtility::workspaceOL('sys_file_reference', $row);
+            // t3ver_state=2 indicates that the live element must be deleted upon swapping the versions.
+            if ((int)$row['t3ver_state'] === 2) {
+                unset($rows[$key]);
+            }
+        }
+
         return $rows;
     }
-    
+
     /**
      * Get page repository
      *
@@ -192,10 +200,10 @@ class Repair
                 $this->pageRepository = \TYPO3\CMS\Core\Utility\GeneralUtility::makeInstance('TYPO3\\CMS\\Frontend\\Page\\PageRepository');
             }
         }
-        
+
         return $this->pageRepository;
     }
-    
+
     /**
      * Get TYPO3s Database Connection
      *
