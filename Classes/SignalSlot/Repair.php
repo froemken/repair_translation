@@ -75,7 +75,7 @@ class Repair
         if ($this->isSysFileReferenceTable($query)) {
             $mergedImages = array();
             $origTranslatedReferences = $this->reduceResultToTranslatedRecords($result);
-            $newTranslatedReferences = $this->getTranslatedSysFileReferencesWithNoDefaultLanguage($query);
+            $translatedReferencesWithNoDefaultLanguage = $this->getTranslatedSysFileReferencesWithNoDefaultLanguage($query);
 
             $record = current($result);
             if (
@@ -86,12 +86,12 @@ class Repair
             ) {
                 // if translation is empty, but mergeIfNotBlank is set, than use the images from default language
                 // AND translated images
+                $this->addImagesToResult($mergedImages, $translatedReferencesWithNoDefaultLanguage);
                 $this->addImagesToResult($mergedImages, $result);
-                $this->addImagesToResult($mergedImages, $newTranslatedReferences);
             } else {
                 // merge with the translated image. If translation is empty $result will be empty, too
                 $this->addImagesToResult($mergedImages, $origTranslatedReferences);
-                $this->addImagesToResult($mergedImages, $newTranslatedReferences);
+                $this->addImagesToResult($mergedImages, $translatedReferencesWithNoDefaultLanguage);
             }
             $result = $mergedImages;
         }
