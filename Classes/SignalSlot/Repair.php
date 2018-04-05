@@ -74,7 +74,7 @@ class Repair
     {
         if ($this->isSysFileReferenceTable($query)) {
             $mergedImages = array();
-            $origTranslatedReferences = $this->reduceResultToTranslatedRecords($result);
+            $translatedReferencesWithDefaultLanguage = $this->reduceResultToTranslatedRecords($result);
             $translatedReferencesWithNoDefaultLanguage = $this->getTranslatedSysFileReferencesWithNoDefaultLanguage($query);
 
             $record = current($result);
@@ -84,13 +84,16 @@ class Repair
                 && isset($GLOBALS['TCA'][$record['tablenames']]['columns'][$record['fieldname']]['l10n_mode'])
                 && $GLOBALS['TCA'][$record['tablenames']]['columns'][$record['fieldname']]['l10n_mode'] === 'mergeIfNotBlank'
             ) {
-                // if translation is empty, but mergeIfNotBlank is set, than use the images from default language
-                // AND translated images
-                $this->addImagesToResult($mergedImages, $translatedReferencesWithNoDefaultLanguage);
-                $this->addImagesToResult($mergedImages, $result);
+                // if translation is empty, than use the images from default language
+                // else: use the translated records only
+                // mergeIfNotBlank has nothing to do with "merging" of default and translated records
+                $this->addImagesToResult(
+                    $mergedImages,
+                    $translatedReferencesWithNoDefaultLanguage ? $translatedReferencesWithNoDefaultLanguage : $result
+                );
             } else {
                 // merge with the translated image. If translation is empty $result will be empty, too
-                $this->addImagesToResult($mergedImages, $origTranslatedReferences);
+                $this->addImagesToResult($mergedImages, $translatedReferencesWithDefaultLanguage);
                 $this->addImagesToResult($mergedImages, $translatedReferencesWithNoDefaultLanguage);
             }
             $result = $mergedImages;
