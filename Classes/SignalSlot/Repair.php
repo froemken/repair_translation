@@ -73,27 +73,48 @@ class Repair
     public function modifySysFileReferenceLanguage(QueryInterface $query, array $result)
     {
         if ($this->isSysFileReferenceTable($query)) {
+            $mergedImages = array();
             $origTranslatedReferences = $this->reduceResultToTranslatedRecords($result);
-            $newTranslatedReferences = $this->getNewlyCreatedTranslatedSysFileReferences($query);
+            $newTranslatedReferences = $this->getTranslatedSysFileReferencesWithNoDefaultLanguage($query);
 
             $record = current($result);
             if (
-                is_array($record) &&
-                isset($GLOBALS['TCA'][$record['tablenames']]['columns'][$record['fieldname']]['l10n_mode']) &&
-                $GLOBALS['TCA'][$record['tablenames']]['columns'][$record['fieldname']]['l10n_mode'] === 'mergeIfNotBlank'
+                is_array($record)
+                && !empty($record)
+                && isset($GLOBALS['TCA'][$record['tablenames']]['columns'][$record['fieldname']]['l10n_mode'])
+                && $GLOBALS['TCA'][$record['tablenames']]['columns'][$record['fieldname']]['l10n_mode'] === 'mergeIfNotBlank'
             ) {
-                // if translation is empty, but mergeIfNotBlank is set, than use the image from default language
-                // keep $result as it is
+                // if translation is empty, but mergeIfNotBlank is set, than use the images from default language
+                // AND translated images
+                $this->addImagesToResult($mergedImages, $result);
+                $this->addImagesToResult($mergedImages, $newTranslatedReferences);
             } else {
                 // merge with the translated image. If translation is empty $result will be empty, too
-                $result = array_merge($origTranslatedReferences, $newTranslatedReferences);
+                $this->addImagesToResult($mergedImages, $origTranslatedReferences);
+                $this->addImagesToResult($mergedImages, $newTranslatedReferences);
             }
+            $result = $mergedImages;
         }
 
         return array(
             0 => $query,
             1 => $result
         );
+    }
+
+    /**
+     * Add multiple images to Signal result
+     *
+     * @param array $result
+     * @param array $images
+     */
+    protected function addImagesToResult(&$result, $images)
+    {
+        if (is_array($images) && !empty($images)) {
+            foreach ($images as $image) {
+                array_push($result, $image);
+            }
+        }
     }
 
     /**
@@ -139,7 +160,7 @@ class Repair
     }
 
     /**
-     * Get newly created translated sys_file_references,
+     * Get translated sys_file_references,
      * which do not have a relation to the default language
      * This will happen, if you translate a record, delete the sys_file_record and create a new one
      *
@@ -147,7 +168,7 @@ class Repair
      *
      * @return array
      */
-    protected function getNewlyCreatedTranslatedSysFileReferences(QueryInterface $query)
+    protected function getTranslatedSysFileReferencesWithNoDefaultLanguage(QueryInterface $query)
     {
         // Find references which do not have a relation to default language
         $where = array(
