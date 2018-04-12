@@ -34,7 +34,7 @@ class QueryParserTest extends \Nimut\TestingFramework\TestCase\UnitTestCase
     public function setUp()
     {
         $this->subject = new \StefanFroemken\RepairTranslation\Parser\QueryParser();
-        $this->dbProphecy = $this->prophesize(\TYPO3\CMS\Core\Database\DatabaseConnection::class);
+        $this->dbProphecy = $this->prophesize('TYPO3\\CMS\\Core\\Database\\DatabaseConnection');
         $GLOBALS['TYPO3_DB'] = $this->dbProphecy->reveal();
     }
 
