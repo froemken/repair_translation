@@ -19,30 +19,39 @@ namespace StefanFroemken\RepairTranslation\Tests\Unit\Parser;
  *
  * @author Stefan Froemken <froemken@gmail.com>
  */
-class QueryParserTest extends \TYPO3\CMS\Core\Tests\UnitTestCase
+class QueryParserTest extends \Nimut\TestingFramework\TestCase\UnitTestCase
 {
     /**
      * @var \StefanFroemken\RepairTranslation\Parser\QueryParser
      */
     protected $subject;
 
+    /**
+     * @var \TYPO3\CMS\Core\Database\DatabaseConnection
+     */
+    protected $dbProphecy;
+
     public function setUp()
     {
         $this->subject = new \StefanFroemken\RepairTranslation\Parser\QueryParser();
+        $this->dbProphecy = $this->prophesize(\TYPO3\CMS\Core\Database\DatabaseConnection::class);
+        $GLOBALS['TYPO3_DB'] = $this->dbProphecy->reveal();
     }
 
     public function tearDown()
     {
         unset($this->subject);
+        parent::tearDown();
     }
 
     /**
      * @test
      */
     public function parseConstraintWithEqualToNummReturnsWhereWithEmptyQuotedString() {
+        $this->dbProphecy->fullQuoteStr((string)NULL, 'sys_file_reference')->shouldBeCalled()->willReturn('\'\'');
         $propertyValue = new \TYPO3\CMS\Extbase\Persistence\Generic\Qom\PropertyValue(
             'firstName',
-            'firstName'
+            'tx_myext_domain_model_person'
         );
         $comparison = new \TYPO3\CMS\Extbase\Persistence\Generic\Qom\Comparison(
             $propertyValue,
@@ -53,7 +62,7 @@ class QueryParserTest extends \TYPO3\CMS\Core\Tests\UnitTestCase
         $this->subject->parseConstraint($comparison, $where);
 
         $this->assertSame(
-            [''],
+            array('tx_myext_domain_model_person.firstName=\'\''),
             $where
         );
     }
