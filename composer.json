@@ -1,31 +1,53 @@
 {
-    "name": "stefanfroemken/repair_translation",
-    "type": "typo3-cms-extension",
-    "description": "Get rid of displaying the default file in translated records",
-    "license": "GPL-2.0-or-later",
-    "keywords": ["typo3", "extbase", "translation", "localization", "repair"],
-    "homepage": "http://www.typo3lexikon.de",
-    "authors": [
-      {
-        "name": "Stefan Froemken",
-        "email": "froemken@gmail.com",
-        "role": "Lead Developer"
-      }
-    ],
-    "support": {
-      "email": "froemken@gmail.com",
-      "issues": "https://github.com/froemken/repair_translation/issues",
-      "source": "https://github.com/froemken/repair_translation"
-    },
-    "require": {
-      "typo3/cms-core": ">=6.2.14,<9.0"
-    },
-    "require-dev": {
-      "phpunit/phpunit": "~4.8.0"
-    },
-    "autoload": {
-        "psr-4": {
-            "StefanFroemken\\RepairTranslation\\": "Classes"
-        }
-    }
+	"name": "stefanfroemken/repair_translation",
+	"type": "typo3-cms-extension",
+	"description": "Get rid of displaying the default file in translated records",
+	"license": "GPL-2.0-or-later",
+	"keywords": ["typo3", "extbase", "translation", "localization", "repair"],
+	"homepage": "http://www.typo3lexikon.de",
+	"authors": [
+		{
+			"name": "Stefan Froemken",
+			"email": "froemken@gmail.com",
+			"role": "Lead Developer"
+		}
+	],
+	"support": {
+		"email": "froemken@gmail.com",
+		"issues": "https://github.com/froemken/repair_translation/issues",
+		"source": "https://github.com/froemken/repair_translation"
+	},
+	"require": {
+		"typo3/cms-core": ">=6.2.14,<9.0"
+	},
+	"require-dev": {
+		"friendsofphp/php-cs-fixer": "^2",
+		"nimut/testing-framework": "^2.0 || ^3.0"
+	},
+	"autoload": {
+		"psr-4": {
+			"StefanFroemken\\RepairTranslation\\": "Classes"
+		}
+	},
+	"autoload-dev": {
+		"psr-4": {
+			"JWeiland\\RepairTranslation\\Tests\\": "Tests"
+		}
+	},
+	"config": {
+		"vendor-dir": ".Build/vendor",
+		"bin-dir": ".Build/bin"
+	},
+	"scripts": {
+		"post-autoload-dump": [
+			"mkdir -p .Build/Web/typo3conf/ext/",
+			"[ -L .Build/Web/typo3conf/ext/repair_translation ] || ln -snvf ../../../../. .Build/Web/typo3conf/ext/repair_translation"
+		]
+	},
+	"extra": {
+		"typo3/cms": {
+			"cms-package-dir": "{$vendor-dir}/typo3/cms",
+			"web-dir": ".Build/Web"
+		}
+	}
 }
