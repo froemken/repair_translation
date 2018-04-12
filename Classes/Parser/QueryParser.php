@@ -1,8 +1,8 @@
 <?php
 namespace StefanFroemken\RepairTranslation\Parser;
 
-/**
- * This file is part of the TYPO3 CMS project.
+/*
+ * This file is part of the repair_translation project.
  *
  * It is free software; you can redistribute it and/or modify it under
  * the terms of the GNU General Public License, either version 2
@@ -33,7 +33,8 @@ class QueryParser
      *
      * @return void
      */
-    public function parseConstraint(Qom\ConstraintInterface $constraint = null, array &$where) {
+    public function parseConstraint(Qom\ConstraintInterface $constraint = null, array &$where)
+    {
         if ($constraint instanceof Qom\AndInterface) {
             $this->parseConstraint($constraint->getConstraint1(), $where);
             $this->parseConstraint($constraint->getConstraint2(), $where);
@@ -51,7 +52,7 @@ class QueryParser
             );
         }
     }
-    
+
     /**
      * Get Value of operand2
      *
@@ -66,11 +67,11 @@ class QueryParser
         } elseif (MathUtility::canBeInterpretedAsInteger($operand)) {
             $value = (string)$operand;
         } else {
-            $value = $this->getDatabaseConnection()->fullQuoteStr($operand, 'sys_file_reference');
+            $value = $this->getDatabaseConnection()->fullQuoteStr((string)$operand, 'sys_file_reference');
         }
         return $value;
     }
-    
+
     /**
      * Get TYPO3s Database Connection
      *

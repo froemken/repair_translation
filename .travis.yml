@@ -61,4 +61,4 @@ before_script:
 script:
   - echo; echo "Running unit tests"; .Build/bin/phpunit --colors -c .Build/vendor/nimut/testing-framework/res/Configuration/UnitTests.xml Tests/Unit/
   - echo; echo "Running php lint"; find . -name \*.php ! -path "./.Build/*" | parallel --gnu php -d display_errors=stderr -l {} > /dev/null \;
-  - echo; echo "Running PHP Coding Standards Fixer checks"; .Build/bin/php-cs-fixer fix Classes --config=Build/.php_cs.php --dry-run --using-cache=no -v
+  - echo; echo "Running PHP Coding Standards Fixer checks"; .Build/bin/php-cs-fixer fix Classes --config=Build/.php_cs.php --dry-run --using-cache=no -v --diff

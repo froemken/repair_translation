@@ -1,36 +1,20 @@
 <?php
 namespace StefanFroemken\RepairTranslation\SignalSlot;
 
-/***************************************************************
- *  Copyright notice
+/*
+ * This file is part of the repair_translation project.
  *
- *  (c) 2016 Stefan Froemken <froemken@gmail.com>
+ * It is free software; you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License, either version 2
+ * of the License, or any later version.
  *
- *  All rights reserved
+ * For the full copyright and license information, please read the
+ * LICENSE.txt file that was distributed with this source code.
  *
- *  This script is part of the TYPO3 project. The TYPO3 project is
- *  free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 3 of the License, or
- *  (at your option) any later version.
- *
- *  The GNU General Public License can be found at
- *  http://www.gnu.org/copyleft/gpl.html.
- *
- *  This script is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  This copyright notice MUST APPEAR in all copies of the script!
- ***************************************************************/
+ * The TYPO3 project - inspiring people to share!
+ */
 use TYPO3\CMS\Backend\Utility\BackendUtility;
-use TYPO3\CMS\Extbase\DomainObject\DomainObjectInterface;
-use TYPO3\CMS\Extbase\Persistence\Generic\Qom\Comparison;
-use TYPO3\CMS\Extbase\Persistence\Generic\Qom\ConstraintInterface;
 use TYPO3\CMS\Extbase\Persistence\Generic\Qom\JoinInterface;
-use TYPO3\CMS\Extbase\Persistence\Generic\Qom\LogicalAnd;
-use TYPO3\CMS\Extbase\Persistence\Generic\Qom\LogicalOr;
 use TYPO3\CMS\Extbase\Persistence\Generic\Qom\SelectorInterface;
 use TYPO3\CMS\Extbase\Persistence\QueryInterface;
 
@@ -216,7 +200,8 @@ class Repair
      *
      * @return \TYPO3\CMS\Frontend\Page\PageRepository
      */
-    protected function getPageRepository() {
+    protected function getPageRepository()
+    {
         if (!$this->pageRepository instanceof \TYPO3\CMS\Frontend\Page\PageRepository) {
             if ($this->environmentService->isEnvironmentInFrontendMode() && is_object($GLOBALS['TSFE'])) {
                 $this->pageRepository = $GLOBALS['TSFE']->sys_page;
