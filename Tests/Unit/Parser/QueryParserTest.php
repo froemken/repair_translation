@@ -47,7 +47,7 @@ class QueryParserTest extends \Nimut\TestingFramework\TestCase\UnitTestCase
     /**
      * @test
      */
-    public function parseConstraintWithEqualToNummReturnsWhereWithEmptyQuotedString() {
+    public function parseConstraintWithEqualToNummReturnsWhereithEmptyQuotedString() {
         $this->dbProphecy->fullQuoteStr((string)NULL, 'sys_file_reference')->shouldBeCalled()->willReturn('\'\'');
         $propertyValue = new \TYPO3\CMS\Extbase\Persistence\Generic\Qom\PropertyValue(
             'firstName',
