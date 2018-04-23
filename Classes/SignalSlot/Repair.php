@@ -52,11 +52,11 @@ class Repair
      * Modify sys_file_reference language
      *
      * @param \TYPO3\CMS\Extbase\Persistence\QueryInterface $query
-     * @param array $translatedReferencesWithDefaultLanguage
+     * @param array $referencesFromDefaultLanguage
      *
      * @return array
      */
-    public function modifySysFileReferenceLanguage(QueryInterface $query, array $translatedReferencesWithDefaultLanguage)
+    public function modifySysFileReferenceLanguage(QueryInterface $query, array $referencesFromDefaultLanguage)
     {
         if (
             $this->isSysFileReferenceTable($query)
@@ -70,6 +70,11 @@ class Repair
                 $translatedReference = current($translatedReferences);
             }
 
+            // only valid since TYPO3 8.6
+            if (empty($translatedReference) && !empty($referencesFromDefaultLanguage)) {
+                $translatedReference = current($referencesFromDefaultLanguage);
+            }
+
             $translatedForeignRecord = array();
             if (!empty($translatedReference)) {
                 $translatedForeignRecord = $this->getTranslatedForeignRecord($translatedReference);
@@ -78,8 +83,8 @@ class Repair
             if (
                 !empty($translatedForeignRecord)
                 && (
-                    $this->isMergeIfNotBlankConfigured($translatedForeignRecord)
-                    || $this->isRecordConfiguredToUseDefaultLanguage($translatedForeignRecord, $translatedReference)
+                    $this->isMergeIfNotBlankConfigured($translatedReference)
+                    || $this->isRecordConfiguredToUseDefaultLanguage($translatedReference, $translatedForeignRecord)
                 )
             ) {
                 $foreignRecord = $this->getForeignRecordInDefaultLanguage($translatedForeignRecord, $translatedReference);
@@ -96,12 +101,12 @@ class Repair
                 $this->addImagesToResult($mergedImages, $translatedReferences);
             }
 
-            $translatedReferencesWithDefaultLanguage = $mergedImages;
+            $referencesFromDefaultLanguage = $mergedImages;
         }
 
         return array(
             0 => $query,
-            1 => $translatedReferencesWithDefaultLanguage
+            1 => $referencesFromDefaultLanguage
         );
     }
 
@@ -123,12 +128,12 @@ class Repair
      * Since TYPO3 8.6 you can decide on your own to use default language or values of translated record.
      * This was saved in a json in column l10n_state
      *
-     * @param array $foreignRecord
      * @param array $sysFileRecord
+     * @param array $foreignRecord
      *
      * @return bool
      */
-    protected function isRecordConfiguredToUseDefaultLanguage(array $foreignRecord, array $sysFileRecord)
+    protected function isRecordConfiguredToUseDefaultLanguage(array $sysFileRecord, array $foreignRecord)
     {
         return VersionNumberUtility::convertVersionNumberToInteger(TYPO3_branch) >= 8006000
             && array_key_exists('l10n_state', $foreignRecord)
