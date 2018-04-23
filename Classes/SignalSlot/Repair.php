@@ -14,6 +14,7 @@ namespace StefanFroemken\RepairTranslation\SignalSlot;
  * The TYPO3 project - inspiring people to share!
  */
 use TYPO3\CMS\Backend\Utility\BackendUtility;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\Utility\VersionNumberUtility;
 use TYPO3\CMS\Extbase\Persistence\Generic\Qom\JoinInterface;
 use TYPO3\CMS\Extbase\Persistence\Generic\Qom\SelectorInterface;
@@ -51,84 +52,153 @@ class Repair
      * Modify sys_file_reference language
      *
      * @param \TYPO3\CMS\Extbase\Persistence\QueryInterface $query
-     * @param array $result
+     * @param array $translatedReferencesWithDefaultLanguage
      *
      * @return array
      */
-    public function modifySysFileReferenceLanguage(QueryInterface $query, array $result)
+    public function modifySysFileReferenceLanguage(QueryInterface $query, array $translatedReferencesWithDefaultLanguage)
     {
-        if ($this->isSysFileReferenceTable($query)) {
+        if (
+            $this->isSysFileReferenceTable($query)
+            && $GLOBALS['TSFE']->sys_language_uid > 0
+        ) {
             $mergedImages = array();
-            $translatedReferencesWithDefaultLanguage = $this->reduceResultToTranslatedRecords($result);
-            $translatedReferencesWithNoDefaultLanguage = $this->getTranslatedSysFileReferencesWithNoDefaultLanguage($query);
+            $translatedReferences = $this->getTranslatedSysFileReferences($query);
 
-            $record = current($result);
+            $translatedReference = array();
+            if (!empty($translatedReferences)) {
+                $translatedReference = current($translatedReferences);
+            }
+
+            $translatedForeignRecord = array();
+            if (!empty($translatedReference)) {
+                $translatedForeignRecord = $this->getTranslatedForeignRecord($translatedReference);
+            }
+
             if (
-                is_array($record)
-                && !empty($record)
+                !empty($translatedForeignRecord)
+                && (
+                    $this->isMergeIfNotBlankConfigured($translatedForeignRecord)
+                    || $this->isRecordConfiguredToUseDefaultLanguage($translatedForeignRecord, $translatedReference)
+                )
             ) {
-                $parentRecord = $this->getParentRecord($record);
-                if (
-                    (
-                        VersionNumberUtility::convertVersionNumberToInteger(TYPO3_branch) < 8006000
-                        && isset($GLOBALS['TCA'][$record['tablenames']]['columns'][$record['fieldname']]['l10n_mode'])
-                        && $GLOBALS['TCA'][$record['tablenames']]['columns'][$record['fieldname']]['l10n_mode'] === 'mergeIfNotBlank'
-                    )
-                    || (
-                        VersionNumberUtility::convertVersionNumberToInteger(TYPO3_branch) >= 8006000
-                        && array_key_exists('l10n_state', $parentRecord)
-                        && $this->configuredToUseDefaultLanguage($parentRecord['l10n_state'], $record['fieldname'])
-                    )
-                ) {
+                $foreignRecord = $this->getForeignRecordInDefaultLanguage($translatedForeignRecord, $translatedReference);
+                if ($foreignRecord) {
                     // if translated field is empty, than use the images from default language
                     // mergeIfNotBlank has nothing to do with "merging" of default and translated records
                     $this->addImagesToResult(
                         $mergedImages,
-                        $translatedReferencesWithNoDefaultLanguage ? $translatedReferencesWithNoDefaultLanguage : $result
+                        $this->getSysFileReferencesInDefaultLanguage($query, $foreignRecord)
                     );
-                } else {
-                    // merge translated images with images, which are only available in current language
-                    $this->addImagesToResult($mergedImages, $translatedReferencesWithDefaultLanguage);
-                    $this->addImagesToResult($mergedImages, $translatedReferencesWithNoDefaultLanguage);
                 }
+            } else {
+                // merge translated images with images, which are only available in current language
+                $this->addImagesToResult($mergedImages, $translatedReferences);
             }
 
-            $result = $mergedImages;
+            $translatedReferencesWithDefaultLanguage = $mergedImages;
         }
 
         return array(
             0 => $query,
-            1 => $result
+            1 => $translatedReferencesWithDefaultLanguage
         );
     }
 
     /**
-     * Get parent record, to check l10n_state value
+     * In TYPO3 versions less than 8.6 you can configure TYPO3 to use
+     * the images from default language, as long as translation does not contain any images
+     *
+     * @param array $sysFileRecord
+     * @return bool
+     */
+    protected function isMergeIfNotBlankConfigured(array $sysFileRecord)
+    {
+        return VersionNumberUtility::convertVersionNumberToInteger(TYPO3_branch) < 8006000
+            && isset($GLOBALS['TCA'][$sysFileRecord['tablenames']]['columns'][$sysFileRecord['fieldname']]['l10n_mode'])
+            && $GLOBALS['TCA'][$sysFileRecord['tablenames']]['columns'][$sysFileRecord['fieldname']]['l10n_mode'] === 'mergeIfNotBlank';
+    }
+
+    /**
+     * Since TYPO3 8.6 you can decide on your own to use default language or values of translated record.
+     * This was saved in a json in column l10n_state
+     *
+     * @param array $foreignRecord
+     * @param array $sysFileRecord
+     *
+     * @return bool
+     */
+    protected function isRecordConfiguredToUseDefaultLanguage(array $foreignRecord, array $sysFileRecord)
+    {
+        return VersionNumberUtility::convertVersionNumberToInteger(TYPO3_branch) >= 8006000
+            && array_key_exists('l10n_state', $foreignRecord)
+            && $this->configuredToUseDefaultLanguage($foreignRecord['l10n_state'], $sysFileRecord['fieldname']);
+    }
+
+    /**
+     * Get translated foreign record, to check l10n_state value
      *
      * @param array $record
+     *
      * @return array
      */
-    protected function getParentRecord(array $record)
+    protected function getTranslatedForeignRecord(array $record)
     {
-        $parentRecord = $this->getDatabaseConnection()->exec_SELECTgetSingleRow(
+        $translatedForeignRecord = $this->getDatabaseConnection()->exec_SELECTgetSingleRow(
             '*',
             $record['tablenames'],
             'uid=' . (int)$record['uid_foreign']
         );
-        if (is_array($parentRecord)) {
+        if (is_array($translatedForeignRecord)) {
             $sysLanguageMode = $GLOBALS['TSFE']->sys_language_mode ? $GLOBALS['TSFE']->sys_language_mode : null;
             $overlayMode = $sysLanguageMode === 'strict' ? 'hideNonTranslated' : '';
-            $parentRecord = $this->getPageRepository()->getRecordOverlay(
+            $translatedForeignRecord = $this->getPageRepository()->getRecordOverlay(
                 $record['tablenames'],
-                $parentRecord,
+                $translatedForeignRecord,
                 $GLOBALS['TSFE']->sys_language_uid,
                 $overlayMode
             );
         }
-        if (empty($parentRecord)) {
-            $parentRecord = array();
+        if (empty($translatedForeignRecord)) {
+            $translatedForeignRecord = array();
         }
-        return $parentRecord;
+
+        BackendUtility::workspaceOL($record['tablenames'], $translatedForeignRecord);
+        // t3ver_state=2 indicates that the live element must be deleted upon swapping the versions.
+        if ((int)$translatedForeignRecord['t3ver_state'] === 2) {
+            $translatedForeignRecord = array();
+        }
+
+        return $translatedForeignRecord;
+    }
+
+    /**
+     * Get foreign record in default language
+     *
+     * @param array $translatedRecord
+     * @param array $sysFileReference
+     *
+     * @return array
+     */
+    protected function getForeignRecordInDefaultLanguage(array $translatedRecord, array $sysFileReference)
+    {
+        $parentField = $GLOBALS['TCA'][$sysFileReference['tablenames']]['ctrl']['transOrigPointerField'];
+        $foreignRecord = $this->getDatabaseConnection()->exec_SELECTgetSingleRow(
+            '*',
+            $sysFileReference['tablenames'],
+            'uid=' . (int)$translatedRecord[$parentField]
+        );
+        if (empty($foreignRecord)) {
+            $foreignRecord = array();
+        }
+
+        BackendUtility::workspaceOL($sysFileReference['tablenames'], $foreignRecord);
+        // t3ver_state=2 indicates that the live element must be deleted upon swapping the versions.
+        if ((int)$foreignRecord['t3ver_state'] === 2) {
+            $foreignRecord = array();
+        }
+
+        return $foreignRecord;
     }
 
     /**
@@ -142,12 +212,12 @@ class Repair
     {
         $json = trim($json);
         if (empty($json)) {
-            return true;
+            return false;
         }
 
         $fieldConfiguration = json_decode($json, true);
         if (empty($fieldConfiguration)) {
-            return true;
+            return false;
         }
 
         if (array_key_exists($fieldName, $fieldConfiguration)) {
@@ -217,19 +287,14 @@ class Repair
 
     /**
      * Get translated sys_file_references,
-     * which do not have a relation to the default language
-     * This will happen, if you translate a record, delete the sys_file_record and create a new one
      *
      * @param QueryInterface $query
      *
      * @return array
      */
-    protected function getTranslatedSysFileReferencesWithNoDefaultLanguage(QueryInterface $query)
+    protected function getTranslatedSysFileReferences(QueryInterface $query)
     {
-        // Find references which do not have a relation to default language
-        $where = array(
-            0 => 'sys_file_reference.l10n_parent = 0'
-        );
+        $where = array();
         // add where statements. uid_foreign=UID of translated parent record
         $this->queryParser->parseConstraint($query->getConstraint(), $where);
 
@@ -242,6 +307,59 @@ class Repair
                 BackendUtility::deleteClause('sys_file_reference')
             );
         }
+        $rows = $this->getDatabaseConnection()->exec_SELECTgetRows(
+            '*',
+            'sys_file_reference',
+            implode(' AND ', $where),
+            '',
+            'sorting_foreign ASC'
+        );
+        if (empty($rows)) {
+            $rows = array();
+        }
+
+        foreach ($rows as $key => &$row) {
+            BackendUtility::workspaceOL('sys_file_reference', $row);
+            // t3ver_state=2 indicates that the live element must be deleted upon swapping the versions.
+            if ((int)$row['t3ver_state'] === 2) {
+                unset($rows[$key]);
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Get sys_file_references in default language
+     *
+     * @param QueryInterface $query
+     * @param array $foreignRecord
+     *
+     * @return array
+     */
+    protected function getSysFileReferencesInDefaultLanguage(QueryInterface $query, array $foreignRecord)
+    {
+        $where = array();
+        // add where statements. uid_foreign=UID of translated parent record
+        $this->queryParser->parseConstraint($query->getConstraint(), $where);
+
+        if ($this->environmentService->isEnvironmentInFrontendMode()) {
+            $where[] = ' 1=1 ' . $this->getPageRepository()->enableFields('sys_file_reference');
+        } else {
+            $where[] = sprintf(
+                ' 1=1 %s %s',
+                BackendUtility::BEenableFields('sys_file_reference'),
+                BackendUtility::deleteClause('sys_file_reference')
+            );
+        }
+
+        foreach ($where as $key => $condition) {
+            if (GeneralUtility::isFirstPartOfStr($condition, 'sys_file_reference.uid_foreign=')) {
+                $where[$key] = 'sys_file_reference.uid_foreign=' . (int)$foreignRecord['uid'];
+                break;
+            }
+        }
+
         $rows = $this->getDatabaseConnection()->exec_SELECTgetRows(
             '*',
             'sys_file_reference',
