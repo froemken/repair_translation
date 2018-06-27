@@ -330,7 +330,8 @@ class Repair
                 unset($rows[$key]);
             }
         }
-
+        reset($rows);
+            
         return $rows;
     }
 
@@ -383,6 +384,7 @@ class Repair
                 unset($rows[$key]);
             }
         }
+        reset($rows);
 
         return $rows;
     }
