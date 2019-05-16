@@ -10,7 +10,7 @@
  * "version" and "dependencies" must not be touched!
  ***************************************************************/
 
-$EM_CONF[$_EXTKEY] = [
+$EM_CONF[$_EXTKEY] = array(
     'title' => 'Repair file translation',
     'description' => 'Get rid of displaying the default file in translated records',
     'category' => 'service',
@@ -28,13 +28,13 @@ $EM_CONF[$_EXTKEY] = [
     'clearCacheOnLoad' => 0,
     'lockType' => '',
     'version' => '1.4.0',
-    'constraints' => [
-        'depends' => [
-            'typo3' => '8.7.14-8.7.99',
-        ],
-        'conflicts' => [
-        ],
-        'suggests' => [
-        ],
-    ],
-];
+    'constraints' => array(
+        'depends' => array(
+            'typo3' => '6.2.14-8.99.99',
+        ),
+        'conflicts' => array(
+        ),
+        'suggests' => array(
+        ),
+    ),
+);

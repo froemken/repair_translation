@@ -88,12 +88,15 @@ class Repair
                 )
             ) {
                 $foreignRecord = $this->getForeignRecordInDefaultLanguage($translatedForeignRecord, $translatedReference);
-                if ($foreignRecord) {
+                $tableName = $translatedReference['tablenames'];
+                $languageField = $GLOBALS['TCA'][$tableName]['ctrl']['languageField'];
+                // If record in default language exists or all languages
+                if ($foreignRecord || (int)$translatedForeignRecord[$languageField] === -1) {
                     // if translated field is empty, than use the images from default language
                     // mergeIfNotBlank has nothing to do with "merging" of default and translated records
                     $this->addImagesToResult(
                         $mergedImages,
-                        $this->getSysFileReferencesInDefaultLanguage($query, $foreignRecord)
+                        $translatedReferences ?: $referencesFromDefaultLanguage
                     );
                 }
             } else {
@@ -241,7 +244,7 @@ class Repair
      */
     protected function addImagesToResult(&$result, $images)
     {
-        if (is_array($images) && !empty($images)) {
+        if (is_array($images)) {
             foreach ($images as $image) {
                 array_push($result, $image);
             }
